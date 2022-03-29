@@ -3,6 +3,7 @@
 // Re-export everything from this package that is available in `remix`.
 
 export {
+  createWorkersKVSessionStorage,
   createCloudflareKVSessionStorage,
   createCookie,
   createSessionStorage,
