@@ -18,7 +18,7 @@ export {
   isSession,
   json,
   redirect,
-} from "https://esm.sh/@remix-run/server-runtime?pin=v68";
+} from "./deps/@remix-run/server-runtime.ts";
 
 export type {
   ActionFunction,
@@ -53,4 +53,4 @@ export type {
   SessionData,
   SessionIdStorageStrategy,
   SessionStorage,
-} from "https://esm.sh/@remix-run/server-runtime?pin=v68";
+} from "./deps/@remix-run/server-runtime.ts";
