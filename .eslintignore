@@ -3,6 +3,7 @@
 **/node_modules/
 !.eslintrc.js
 templates/deno
+templates/deno-deploy
 .tmp
 /playground
 **/__tests__/fixtures
