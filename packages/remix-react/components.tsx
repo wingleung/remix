@@ -53,7 +53,7 @@ import type { Transition, Fetcher, Submission } from "./transition";
 ////////////////////////////////////////////////////////////////////////////////
 // RemixEntry
 
-interface RemixEntryContextType {
+export interface RemixEntryContextType {
   manifest: AssetsManifest;
   matches: RouteMatch<ClientRoute>[];
   routeData: { [routeId: string]: RouteData };
