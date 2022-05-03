@@ -400,8 +400,6 @@ function createServerBuild(
   options: Required<BuildOptions> & { incremental?: boolean },
   assetsManifestPromiseRef: AssetsManifestPromiseRef
 ): Promise<esbuild.BuildResult> {
-  let dependencies = getAppDependencies(config);
-
   let stdin: esbuild.StdinOptions | undefined;
   let entryPoints: string[] | undefined;
 
@@ -424,7 +422,7 @@ function createServerBuild(
     serverRouteModulesPlugin(config),
     serverEntryModulePlugin(config),
     serverAssetsManifestPlugin(assetsManifestPromiseRef),
-    serverBareModulesPlugin(config, dependencies, options.onWarning),
+    serverBareModulesPlugin(config, options.onWarning),
   ];
 
   if (config.serverPlatform !== "node") {
