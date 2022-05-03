@@ -35,7 +35,7 @@ export async function createApp({
   installDeps,
   packageManager,
   useTypeScript = true,
-  githubToken = process.env.GITHUB_TOKEN,
+  githubToken,
   debug,
 }: CreateAppArgs) {
   // Create the app directory
