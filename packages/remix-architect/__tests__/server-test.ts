@@ -1,20 +1,15 @@
-import fsp from "fs/promises";
-import path from "path";
 import lambdaTester from "lambda-tester";
-import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import type {
+  APIGatewayProxyEvent,
+  APIGatewayProxyEventV2
+} from "aws-lambda";
 import {
-  // This has been added as a global in node 15+
-  AbortController,
-  createRequestHandler as createRemixRequestHandler,
-  Response as NodeResponse,
+  createRequestHandler as createRemixRequestHandler
 } from "@remix-run/node";
 
-import {
-  createRequestHandler,
-  createRemixHeaders,
-  createRemixRequest,
-  sendRemixResponse,
-} from "../server";
+import { createRequestHandler } from "../server";
+import * as v1Methods from "../api/v1";
+import * as v2Methods from "../api/v2";
 
 // We don't want to test that the remix server works here (that's what the
 // puppetteer tests do), we just want to test the architect adapter
@@ -30,7 +25,7 @@ let mockedCreateRequestHandler =
     typeof createRemixRequestHandler
   >;
 
-function createMockEvent(event: Partial<APIGatewayProxyEventV2> = {}) {
+function createMockEvent(event: Partial<APIGatewayProxyEvent | APIGatewayProxyEventV2> = {}) {
   let now = new Date();
   return {
     headers: {
@@ -152,191 +147,47 @@ describe("architect createRequestHandler", () => {
           ]);
         });
     });
-  });
-});
 
-describe("architect createRemixHeaders", () => {
-  describe("creates fetch headers from architect headers", () => {
-    it("handles empty headers", () => {
-      expect(createRemixHeaders({}, undefined)).toMatchInlineSnapshot(`
-        Headers {
-          Symbol(query): Array [],
-          Symbol(context): null,
-        }
-      `);
+    it("should call api v2 methods", async () => {
+      mockedCreateRequestHandler.mockImplementation(() => async (req) => {
+        return new Response(`URL: ${new URL(req.url).pathname}`);
+      });
+
+      const spyCreateRemixRequest = jest.spyOn(v2Methods, "createRemixRequest")
+      const spySendRemixResponse = jest.spyOn(v2Methods, "sendRemixResponse")
+
+      const mockEvent = createMockEvent({ rawPath: "/foo/bar" });
+
+      await lambdaTester(createRequestHandler({ build: undefined, apiGatewayVersion: "v2" } as any))
+        .event(mockEvent)
+        .expectResolve((res) => {
+          expect(res.statusCode).toBe(200);
+          expect(res.body).toBe("URL: /foo/bar");
+        });
+
+      expect(spyCreateRemixRequest).toHaveBeenCalledWith(mockEvent)
+      expect(spySendRemixResponse).toHaveBeenCalled()
     });
 
-    it("handles simple headers", () => {
-      expect(createRemixHeaders({ "x-foo": "bar" }, undefined))
-        .toMatchInlineSnapshot(`
-        Headers {
-          Symbol(query): Array [
-            "x-foo",
-            "bar",
-          ],
-          Symbol(context): null,
-        }
-      `);
+    it("should call api v1 methods", async () => {
+      mockedCreateRequestHandler.mockImplementation(() => async (req) => {
+        return new Response(`URL: ${new URL(req.url).pathname}`);
+      });
+
+      const spyCreateRemixRequest = jest.spyOn(v1Methods, "createRemixRequest")
+      const spySendRemixResponse = jest.spyOn(v1Methods, "sendRemixResponse")
+
+      const mockEvent = createMockEvent({ path: "/foo/bar" });
+
+      await lambdaTester(createRequestHandler({ build: undefined, apiGatewayVersion: "v1" } as any))
+        .event(mockEvent)
+        .expectResolve((res) => {
+          expect(res.statusCode).toBe(200);
+          expect(res.body).toBe("URL: /foo/bar");
+        });
+
+      expect(spyCreateRemixRequest).toHaveBeenCalledWith(mockEvent)
+      expect(spySendRemixResponse).toHaveBeenCalled()
     });
-
-    it("handles multiple headers", () => {
-      expect(createRemixHeaders({ "x-foo": "bar", "x-bar": "baz" }, undefined))
-        .toMatchInlineSnapshot(`
-        Headers {
-          Symbol(query): Array [
-            "x-foo",
-            "bar",
-            "x-bar",
-            "baz",
-          ],
-          Symbol(context): null,
-        }
-      `);
-    });
-
-    it("handles headers with multiple values", () => {
-      expect(createRemixHeaders({ "x-foo": "bar, baz" }, undefined))
-        .toMatchInlineSnapshot(`
-        Headers {
-          Symbol(query): Array [
-            "x-foo",
-            "bar, baz",
-          ],
-          Symbol(context): null,
-        }
-      `);
-    });
-
-    it("handles headers with multiple values and multiple headers", () => {
-      expect(
-        createRemixHeaders({ "x-foo": "bar, baz", "x-bar": "baz" }, undefined)
-      ).toMatchInlineSnapshot(`
-        Headers {
-          Symbol(query): Array [
-            "x-foo",
-            "bar, baz",
-            "x-bar",
-            "baz",
-          ],
-          Symbol(context): null,
-        }
-      `);
-    });
-
-    it("handles cookies", () => {
-      expect(
-        createRemixHeaders({ "x-something-else": "true" }, [
-          "__session=some_value",
-          "__other=some_other_value",
-        ])
-      ).toMatchInlineSnapshot(`
-        Headers {
-          Symbol(query): Array [
-            "x-something-else",
-            "true",
-            "cookie",
-            "__session=some_value; __other=some_other_value",
-          ],
-          Symbol(context): null,
-        }
-      `);
-    });
-  });
-});
-
-describe("architect createRemixRequest", () => {
-  it("creates a request with the correct headers", () => {
-    expect(
-      createRemixRequest(
-        createMockEvent({
-          cookies: ["__session=value"],
-        })
-      )
-    ).toMatchInlineSnapshot(`
-      NodeRequest {
-        "agent": undefined,
-        "compress": true,
-        "counter": 0,
-        "follow": 20,
-        "highWaterMark": 16384,
-        "insecureHTTPParser": false,
-        "size": 0,
-        Symbol(Body internals): Object {
-          "body": null,
-          "boundary": null,
-          "disturbed": false,
-          "error": null,
-          "size": 0,
-          "type": null,
-        },
-        Symbol(Request internals): Object {
-          "headers": Headers {
-            Symbol(query): Array [
-              "accept",
-              "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-              "accept-encoding",
-              "gzip, deflate",
-              "accept-language",
-              "en-US,en;q=0.9",
-              "cookie",
-              "__session=value",
-              "host",
-              "localhost:3333",
-              "upgrade-insecure-requests",
-              "1",
-              "user-agent",
-              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15",
-            ],
-            Symbol(context): null,
-          },
-          "method": "GET",
-          "parsedURL": "https://localhost:3333/",
-          "redirect": "follow",
-          "signal": null,
-        },
-      }
-    `);
-  });
-});
-
-describe("sendRemixResponse", () => {
-  it("handles regular responses", async () => {
-    let response = new NodeResponse("anything");
-    let abortController = new AbortController();
-    let result = await sendRemixResponse(response, abortController);
-    expect(result.body).toBe("anything");
-  });
-
-  it("handles resource routes with regular data", async () => {
-    let json = JSON.stringify({ foo: "bar" });
-    let response = new NodeResponse(json, {
-      headers: {
-        "Content-Type": "application/json",
-        "content-length": json.length.toString(),
-      },
-    });
-
-    let abortController = new AbortController();
-
-    let result = await sendRemixResponse(response, abortController);
-
-    expect(result.body).toMatch(json);
-  });
-
-  it("handles resource routes with binary data", async () => {
-    let image = await fsp.readFile(path.join(__dirname, "554828.jpeg"));
-
-    let response = new NodeResponse(image, {
-      headers: {
-        "content-type": "image/jpeg",
-        "content-length": image.length.toString(),
-      },
-    });
-
-    let abortController = new AbortController();
-
-    let result = await sendRemixResponse(response, abortController);
-
-    expect(result.body).toMatch(image.toString("base64"));
   });
 });
